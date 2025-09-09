@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finanzas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .gradient-bg-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .gradient-bg-red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .gradient-bg-blue { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+        .gradient-bg-purple { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); }
+        .modal { display: none; }
+        .modal.active { display: flex; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-md mx-auto min-h-screen bg-gray-50">
+        <!-- Navigation -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-50 max-w-md mx-auto">
+            <button onclick="showView('dashboard')" class="nav-btn flex-1 p-2 text-center active" data-view="dashboard">
+                <div class="w-5 h-5 mx-auto mb-1 text-sm">📈</div>
+                <span class="text-[10px] font-medium">Inicio</span>
+            </button>
+            <button onclick="showView('transactions')" class="nav-btn flex-1 p-2 text-center" data-view="transactions">
+                <div class="w-5 h-5 mx-auto mb-1 text-sm">💰</div>
+                <span class="text-[10px] font-medium">Movimientos</span>
+            </button>
+            <button onclick="showView('charts')" class="nav-btn flex-1 p-2 text-center" data-view="charts">
+                <div class="w-5 h-5 mx-auto mb-1 text-sm">📊</div>
+                <span class="text-[10px] font-medium">Gráficos</span>
+            </button>
+        </div>
+
+        <!-- Month Selector (hidden for charts view) -->
+        <div id="month-selector" class="bg-white p-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h2 class="font-semibold text-gray-800" id="current-month">Septiembre 2025</h2>
+                <div class="flex gap-2">
+                    <select id="month-select" class="text-sm border rounded px-2 py-1">
+                        <option value="0">Enero</option>
+                        <option value="1">Febrero</option>
+                        <option value="2">Marzo</option>
+                        <option value="3">Abril</option>
+                        <option value="4">Mayo</option>
+                        <option value="5">Junio</option>
+                        <option value="6">Julio</option>
+                        <option value="7">Agosto</option>
+                        <option value="8" selected>Septiembre</option>
+                        <option value="9">Octubre</option>
+                        <option value="10">Noviembre</option>
+                        <option value="11">Diciembre</option>
+                    </select>
+                    <select id="year-select" class="text-sm border rounded px-2 py-1">
+                        <option value="2025" selected>2025</option>
+                        <option value="2024">2024</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="view p-4 space-y-4">
+            <!-- Balance Cards -->
+            <div class="sticky top-0 z-10 bg-gray-50 pb-4">
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="gradient-bg-green text-white p-3 rounded-lg shadow-lg">
+                        <div class="flex flex-col items-center">
+                            <div class="text-green-100 text-2xl mb-1">⬆️</div>
+                            <p class="text-green-100 text-xs">Ingresos</p>
+                            <p class="text-lg font-bold" id="total-income">$0</p>
+                        </div>
+                    </div>
+
+                    <div class="gradient-bg-red text-white p-3 rounded-lg shadow-lg">
+                        <div class="flex flex-col items-center">
+                            <div class="text-red-100 text-2xl mb-1">⬇️</div>
+                            <p class="text-red-100 text-xs">Gastos</p>
+                            <p class="text-lg font-bold" id="total-expenses">$0</p>
+                        </div>
+                    </div>
+
+                    <div class="gradient-bg-blue text-white p-3 rounded-lg shadow-lg" id="balance-card">
+                        <div class="flex flex-col items-center">
+                            <div class="text-blue-100 text-2xl mb-1">📊</div>
+                            <p class="text-blue-100 text-xs">Balance</p>
+                            <p class="text-lg font-bold" id="total-balance">$0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Single Pie Chart with Toggle -->
+            <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-sm" id="chart-title">Distribución de Gastos</h3>
+                    <div class="flex gap-2">
+                        <button onclick="toggleChart('expense')" id="expense-toggle" class="px-3 py-1 rounded text-sm font-medium bg-red-500 text-white">Gastos</button>
+                        <button onclick="toggleChart('income')" id="income-toggle" class="px-3 py-1 rounded text-sm font-medium bg-gray-200">Ingresos</button>
+                    </div>
+                </div>
+                <div class="flex">
+                    <div style="height: 200px; width: 200px;">
+                        <canvas id="distribution-chart"></canvas>
+                    </div>
+                    <div class="flex-1 ml-4 space-y-2 text-sm" id="chart-legend">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
+            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                <h3 class="font-semibold mb-3">Movimientos Recientes</h3>
+                <div id="recent-transactions" class="space-y-3 max-h-[300px] overflow-y-auto">
+                    <!-- Transactions will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Transactions View -->
+        <div id="transactions-view" class="view p-4 space-y-4 hidden">
+            <button onclick="showAddModal()" class="w-full gradient-bg-blue text-white p-3 rounded-lg font-semibold flex items-center justify-center mb-4">
+                <span class="mr-2">➕</span>
+                Agregar Movimiento
+            </button>
+
+            <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4 space-y-4">
+                <div class="flex gap-2">
+                    <input type="search" id="search-input" placeholder="Buscar por descripción o categoría" class="flex-1 p-2 border rounded text-sm">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="filter-type" class="p-2 border rounded text-sm">
+                        <option value="all">Todos los tipos</option>
+                        <option value="income">Solo ingresos</option>
+                        <option value="expense">Solo gastos</option>
+                    </select>
+                    <select id="filter-category" class="p-2 border rounded text-sm">
+                        <option value="all">Todas las categorías</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-2 items-center">
+                    <input type="date" id="filter-date" class="flex-1 p-2 border rounded text-sm">
+                    <button onclick="clearFilters()" class="bg-gray-100 text-gray-600 px-3 py-2 rounded text-sm hover:bg-gray-200">
+                        Limpiar
+                    </button>
+                    <button onclick="filterTransactions()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm">
+                        Filtrar
+                    </button>
+                </div>
+            </div>
+
+            <div id="transactions-list" class="space-y-2 max-h-[400px] overflow-y-auto">
+                <!-- Transactions will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Charts View -->
+        <div id="charts-view" class="view p-4 space-y-6 hidden">
+            <div class="flex justify-between items-center mb-4 bg-white p-4 rounded-lg border border-gray-200">
+                <h3 class="font-semibold">Gráficos por Año</h3>
+                <select id="chart-year-select" onchange="renderCharts()" class="text-sm border rounded px-3 py-1">
+                    <option value="2024">2024</option>
+                    <option value="2025" selected>2025</option>
+                </select>
+            </div>
+            <div class="bg-white p-4 rounded-lg border border-gray-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold">Tendencia Mensual</h3>
+                    <div id="monthly-growth" class="text-sm font-medium"></div>
+                </div>
+                <canvas id="trend-chart" width="400" height="200"></canvas>
+            </div>
+
+            <div class="bg-white p-4 rounded-lg border border-gray-200">
+                <h3 class="font-semibold mb-4">Balance por Mes</h3>
+                <canvas id="monthly-balance-chart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Transaction Modal -->
+    <div id="add-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-4 space-y-4 w-11/12 max-w-sm">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-semibold">Nuevo Movimiento</h3>
+                <button onclick="hideAddModal()" class="text-gray-500 text-xl">✕</button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex gap-2">
+                    <button onclick="setTransactionType('income')" id="income-btn" class="flex-1 p-3 rounded-lg font-semibold bg-green-600 text-white">
+                        Ingreso
+                    </button>
+                    <button onclick="setTransactionType('expense')" id="expense-btn" class="flex-1 p-3 rounded-lg font-semibold bg-gray-100 text-gray-600">
+                        Gasto
+                    </button>
+                </div>
+
+                <input type="number" id="amount-input" placeholder="Monto" class="w-full p-3 border border-gray-300 rounded-lg">
+
+                <div class="space-y-2">
+                    <select id="category-select" class="w-full p-3 border border-gray-300 rounded-lg">
+                        <option value="">Seleccionar categoría</option>
+                    </select>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="new-category-input" placeholder="Nueva categoría" class="flex-1 p-3 border border-gray-300 rounded-lg">
+                        <button onclick="addNewCategory()" class="bg-gray-100 p-3 rounded-lg hover:bg-gray-200">
+                            Agregar
+                        </button>
+                    </div>
+                </div>
+
+                <input type="text" id="description-input" placeholder="Descripción (opcional)" class="w-full p-3 border border-gray-300 rounded-lg">
+
+                <input type="date" id="date-input" class="w-full p-3 border border-gray-300 rounded-lg">
+
+                <button onclick="addTransaction()" class="w-full gradient-bg-blue text-white p-3 rounded-lg font-semibold">
+                    Guardar Movimiento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let transactions = [];
+        let currentTransactionType = 'income';
+        let selectedMonth = 8; // September
+        let selectedYear = 2025;
+
+        const categories = {
+            income: ['Salario', 'Freelance', 'Inversiones', 'Ventas', 'Otros'],
+            expense: ['Alimentación', 'Transporte', 'Servicios', 'Entretenimiento', 'Salud', 'Compras', 'Otros']
+        };
+
+        const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set today's date and max date for input
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('date-input');
+            dateInput.value = today;
+            dateInput.max = today;
+
+            // Load sample data
+            loadSampleData();
+            updateCategorySelect();
+            updateDisplay();
+
+            // Add event listeners
+            document.getElementById('month-select').addEventListener('change', function() {
+                selectedMonth = parseInt(this.value);
+                updateDisplay();
+            });
+
+            document.getElementById('year-select').addEventListener('change', function() {
+                selectedYear = parseInt(this.value);
+                updateDisplay();
+            });
+        });
+
+        let currentChartType = 'expense';
+        let distributionChart = null;
+
+        function toggleChart(type) {
+            currentChartType = type;
+            document.getElementById('chart-title').textContent = type === 'expense' ? 'Distribución de Gastos' : 'Distribución de Ingresos';
+            
+            // Update toggle buttons
+            document.getElementById('expense-toggle').className = `px-3 py-1 rounded text-sm font-medium ${type === 'expense' ? 'bg-red-500 text-white' : 'bg-gray-200'}`;
+            document.getElementById('income-toggle').className = `px-3 py-1 rounded text-sm font-medium ${type === 'income' ? 'bg-green-500 text-white' : 'bg-gray-200'}`;
+            
+            updateDistributionChart();
+        }
+
+        function updateDistributionChart() {
+            const currentTransactions = getCurrentMonthTransactions();
+            const data = {};
+            let total = 0;
+            
+            currentTransactions.filter(t => t.type === currentChartType).forEach(t => {
+                data[t.category] = (data[t.category] || 0) + t.amount;
+                total += t.amount;
+            });
+
+            // Update legend
+            const legend = document.getElementById('chart-legend');
+            legend.innerHTML = '';
+            Object.entries(data).forEach(([category, amount]) => {
+                const percentage = ((amount / total) * 100).toFixed(1);
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center';
+                div.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 rounded-full mr-2" style="background-color: ${getCategoryColor(category)}"></span>
+                        <span>${category}</span>
+                    </div>
+                    <div class="text-right">
+                        <div>${formatCurrency(amount)}</div>
+                        <div class="text-gray-500 text-xs">${percentage}%</div>
+                    </div>
+                `;
+                legend.appendChild(div);
+            });
+
+            // Update chart
+            if (distributionChart) {
+                distributionChart.destroy();
+            }
+
+            const ctx = document.getElementById('distribution-chart').getContext('2d');
+            distributionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        data: Object.values(data),
+                        backgroundColor: Object.keys(data).map(getCategoryColor)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function getCategoryColor(category) {
+            const colors = {
+                'Salario': '#3B82F6',
+                'Freelance': '#10B981',
+                'Inversiones': '#F59E0B',
+                'Ventas': '#8B5CF6',
+                'Alimentación': '#EF4444',
+                'Transporte': '#EC4899',
+                'Servicios': '#14B8A6',
+                'Entretenimiento': '#6366F1',
+                'Salud': '#F97316',
+                'Compras': '#A855F7',
+                'Otros': '#64748B'
+            };
+            return colors[category] || '#64748B';
+        }
+
+        function loadSampleData() {
+            transactions = [
+                // 2024 Diciembre
+                {id: 101, type: 'income', amount: 2500000, category: 'Salario', description: 'Salario mensual', date: '2024-12-01'},
+                {id: 102, type: 'expense', amount: 450000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-12-05'},
+                {id: 103, type: 'expense', amount: 800000, category: 'Servicios', description: 'Servicios públicos', date: '2024-12-10'},
+                {id: 104, type: 'income', amount: 600000, category: 'Freelance', description: 'Proyecto web', date: '2024-12-15'},
+                {id: 105, type: 'expense', amount: 300000, category: 'Entretenimiento', description: 'Salida fin de año', date: '2024-12-28'},
+                // 2024 Noviembre
+                {id: 106, type: 'income', amount: 2500000, category: 'Salario', description: 'Salario mensual', date: '2024-11-01'},
+                {id: 107, type: 'expense', amount: 420000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-11-05'},
+                {id: 108, type: 'income', amount: 800000, category: 'Inversiones', description: 'Dividendos', date: '2024-11-15'},
+                {id: 109, type: 'expense', amount: 350000, category: 'Transporte', description: 'Mantenimiento', date: '2024-11-20'},
+                // 2024 Octubre
+                {id: 110, type: 'income', amount: 2500000, category: 'Salario', description: 'Salario mensual', date: '2024-10-01'},
+                {id: 111, type: 'expense', amount: 480000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-10-05'},
+                {id: 112, type: 'expense', amount: 750000, category: 'Servicios', description: 'Servicios públicos', date: '2024-10-10'},
+                // 2024 Septiembre
+                {id: 113, type: 'income', amount: 2400000, category: 'Salario', description: 'Salario mensual', date: '2024-09-01'},
+                {id: 114, type: 'expense', amount: 460000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-09-05'},
+                {id: 115, type: 'income', amount: 500000, category: 'Freelance', description: 'Proyecto diseño', date: '2024-09-15'},
+                // 2024 Agosto
+                {id: 116, type: 'income', amount: 2400000, category: 'Salario', description: 'Salario mensual', date: '2024-08-01'},
+                {id: 117, type: 'expense', amount: 440000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-08-05'},
+                {id: 118, type: 'expense', amount: 720000, category: 'Servicios', description: 'Servicios públicos', date: '2024-08-10'},
+                // 2024 Julio
+                {id: 119, type: 'income', amount: 2400000, category: 'Salario', description: 'Salario mensual', date: '2024-07-01'},
+                {id: 120, type: 'expense', amount: 430000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-07-05'},
+                {id: 121, type: 'income', amount: 600000, category: 'Inversiones', description: 'Dividendos', date: '2024-07-15'},
+                // 2024 Junio
+                {id: 122, type: 'income', amount: 2400000, category: 'Salario', description: 'Salario mensual', date: '2024-06-01'},
+                {id: 123, type: 'expense', amount: 420000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-06-05'},
+                {id: 124, type: 'expense', amount: 700000, category: 'Servicios', description: 'Servicios públicos', date: '2024-06-10'},
+                // 2024 Mayo
+                {id: 125, type: 'income', amount: 2400000, category: 'Salario', description: 'Salario mensual', date: '2024-05-01'},
+                {id: 126, type: 'expense', amount: 410000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-05-05'},
+                {id: 127, type: 'income', amount: 450000, category: 'Freelance', description: 'Proyecto web', date: '2024-05-15'},
+                // 2024 Abril
+                {id: 128, type: 'income', amount: 2300000, category: 'Salario', description: 'Salario mensual', date: '2024-04-01'},
+                {id: 129, type: 'expense', amount: 400000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-04-05'},
+                {id: 130, type: 'expense', amount: 680000, category: 'Servicios', description: 'Servicios públicos', date: '2024-04-10'},
+                // 2024 Marzo
+                {id: 131, type: 'income', amount: 2300000, category: 'Salario', description: 'Salario mensual', date: '2024-03-01'},
+                {id: 132, type: 'expense', amount: 390000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-03-05'},
+                {id: 133, type: 'income', amount: 400000, category: 'Inversiones', description: 'Dividendos', date: '2024-03-15'},
+                // 2024 Febrero
+                {id: 134, type: 'income', amount: 2300000, category: 'Salario', description: 'Salario mensual', date: '2024-02-01'},
+                {id: 135, type: 'expense', amount: 380000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-02-05'},
+                {id: 136, type: 'expense', amount: 660000, category: 'Servicios', description: 'Servicios públicos', date: '2024-02-10'},
+                // 2024 Enero
+                {id: 137, type: 'income', amount: 2300000, category: 'Salario', description: 'Salario mensual', date: '2024-01-01'},
+                {id: 138, type: 'expense', amount: 370000, category: 'Alimentación', description: 'Mercado mensual', date: '2024-01-05'},
+                {id: 139, type: 'income', amount: 300000, category: 'Freelance', description: 'Proyecto diseño', date: '2024-01-15'},
+                // 2025
+                {id: 1, type: 'income', amount: 3000000, category: 'Salario', description: 'Salario mensual', date: '2025-09-01'},
+                {id: 2, type: 'income', amount: 800000, category: 'Freelance', description: 'Proyecto diseño web', date: '2025-09-02'},
+                {id: 3, type: 'income', amount: 500000, category: 'Inversiones', description: 'Dividendos', date: '2025-09-03'},
+                {id: 4, type: 'income', amount: 300000, category: 'Ventas', description: 'Venta artículos', date: '2025-09-04'},
+                {id: 5, type: 'expense', amount: 500000, category: 'Alimentación', description: 'Mercado semanal', date: '2025-09-02'},
+                {id: 6, type: 'expense', amount: 200000, category: 'Transporte', description: 'Gasolina', date: '2025-09-03'},
+                // Julio 2025
+                {id: 4, type: 'income', amount: 2800000, category: 'Salario', description: 'Salario mensual', date: '2025-07-01'},
+                {id: 5, type: 'expense', amount: 450000, category: 'Alimentación', description: 'Compras mes', date: '2025-07-05'},
+                // Junio 2025
+                {id: 6, type: 'income', amount: 2900000, category: 'Salario', description: 'Salario mensual', date: '2025-06-01'},
+                {id: 7, type: 'expense', amount: 600000, category: 'Servicios', description: 'Servicios públicos', date: '2025-06-10'},
+                // Mayo 2025
+                {id: 8, type: 'income', amount: 3100000, category: 'Salario', description: 'Salario mensual', date: '2025-05-01'},
+                {id: 9, type: 'expense', amount: 800000, category: 'Salud', description: 'Consulta médica', date: '2025-05-15'},
+                // Abril 2025
+                {id: 10, type: 'income', amount: 2750000, category: 'Salario', description: 'Salario mensual', date: '2025-04-01'},
+                {id: 11, type: 'expense', amount: 350000, category: 'Transporte', description: 'Mantenimiento carro', date: '2025-04-20'},
+                // Marzo 2025
+                {id: 12, type: 'income', amount: 3200000, category: 'Salario', description: 'Salario mensual', date: '2025-03-01'},
+                {id: 13, type: 'expense', amount: 550000, category: 'Compras', description: 'Ropa', date: '2025-03-12'},
+                // Febrero 2025
+                {id: 14, type: 'income', amount: 2900000, category: 'Salario', description: 'Salario mensual', date: '2025-02-01'},
+                {id: 15, type: 'expense', amount: 420000, category: 'Entretenimiento', description: 'Cine y restaurante', date: '2025-02-14'},
+                // Enero 2025
+                {id: 16, type: 'income', amount: 2800000, category: 'Salario', description: 'Salario mensual', date: '2025-01-01'},
+                {id: 17, type: 'expense', amount: 680000, category: 'Alimentación', description: 'Compras mes', date: '2025-01-05'}
+            ];
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                minimumFractionDigits: 0
+            }).format(amount);
+        }
+
+        function showView(viewName) {
+            // Hide all views
+            document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
+            
+            // Show selected view
+            document.getElementById(viewName + '-view').classList.remove('hidden');
+            
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600', 'bg-blue-50');
+                btn.classList.add('text-gray-500');
+            });
+            
+            document.querySelector(`[data-view="${viewName}"]`).classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600', 'bg-blue-50');
+            document.querySelector(`[data-view="${viewName}"]`).classList.remove('text-gray-500');
+
+            // Show/hide month selector based on view
+            document.getElementById('month-selector').style.display = viewName === 'charts' ? 'none' : 'block';
+
+            if (viewName === 'charts') {
+                setTimeout(renderCharts, 100);
+            }
+        }
+
+        function getCurrentMonthTransactions() {
+            return transactions.filter(t => {
+                const tDate = new Date(t.date);
+                return tDate.getMonth() === selectedMonth && tDate.getFullYear() === selectedYear;
+            });
+        }
+
+        function updateDisplay() {
+            const currentTransactions = getCurrentMonthTransactions();
+            
+            const income = currentTransactions
+                .filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            const expenses = currentTransactions
+                .filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            const balance = income - expenses;
+
+            // Update totals
+            document.getElementById('total-income').textContent = formatCurrency(income);
+            document.getElementById('total-expenses').textContent = formatCurrency(expenses);
+            document.getElementById('total-balance').textContent = formatCurrency(balance);
+
+            // Update balance card color
+            const balanceCard = document.getElementById('balance-card');
+            if (balance >= 0) {
+                balanceCard.className = 'gradient-bg-blue text-white p-4 rounded-lg';
+            } else {
+                balanceCard.className = 'bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-lg';
+            }
+
+            // Update month display
+            document.getElementById('current-month').textContent = `${months[selectedMonth]} ${selectedYear}`;
+
+            // Update recent transactions
+            updateRecentTransactions(currentTransactions);
+            updateTransactionsList(currentTransactions);
+            updateDistributionChart();
+        }
+
+        function updateRecentTransactions(transactions) {
+            const container = document.getElementById('recent-transactions');
+            container.innerHTML = '';
+
+            transactions.slice(0, 4).forEach(transaction => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between';
+                div.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center ${
+                            transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                        }">
+                            ${transaction.type === 'income' ? '➕' : '➖'}
+                        </div>
+                        <div class="ml-3">
+                            <p class="font-medium text-sm">${transaction.category}</p>
+                            <p class="text-gray-500 text-xs">${transaction.description}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-semibold ${
+                            transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                        }">
+                            ${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}
+                        </p>
+                        <p class="text-xs text-gray-500">${new Date(transaction.date).toLocaleDateString()}</p>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function filterTransactions() {
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+            const filterType = document.getElementById('filter-type').value;
+            const filterCategory = document.getElementById('filter-category').value;
+            const filterDate = document.getElementById('filter-date').value;
+
+            let filteredTransactions = getCurrentMonthTransactions();
+
+            // Apply search filter
+            if (searchText) {
+                filteredTransactions = filteredTransactions.filter(t => 
+                    t.description.toLowerCase().includes(searchText) ||
+                    t.category.toLowerCase().includes(searchText)
+                );
+            }
+
+            // Apply type filter
+            if (filterType !== 'all') {
+                filteredTransactions = filteredTransactions.filter(t => t.type === filterType);
+            }
+
+            // Apply category filter
+            if (filterCategory !== 'all') {
+                filteredTransactions = filteredTransactions.filter(t => t.category === filterCategory);
+            }
+
+            // Apply date filter
+            if (filterDate) {
+                const searchDate = new Date(filterDate + 'T12:00:00').toISOString().split('T')[0];
+                filteredTransactions = filteredTransactions.filter(t => t.date === searchDate);
+            }
+
+            updateTransactionsList(filteredTransactions);
+        }
+
+        function clearFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('filter-type').value = 'all';
+            document.getElementById('filter-category').value = 'all';
+            document.getElementById('filter-date').value = '';
+            updateTransactionsList(getCurrentMonthTransactions());
+        }
+
+        function updateFilterCategories() {
+            const select = document.getElementById('filter-category');
+            select.innerHTML = '<option value="all">Todas las categorías</option>';
+            
+            const uniqueCategories = new Set();
+            getCurrentMonthTransactions().forEach(t => uniqueCategories.add(t.category));
+            
+            Array.from(uniqueCategories).sort().forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                select.appendChild(option);
+            });
+        }
+
+        function updateTransactionsList(transactions) {
+            const container = document.getElementById('transactions-list');
+            container.innerHTML = '';
+            updateFilterCategories();
+
+            transactions.forEach(transaction => {
+                const div = document.createElement('div');
+                div.className = 'bg-white p-4 rounded-lg border border-gray-200';
+                div.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center ${
+                                transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                            }">
+                                <span class="text-xl">${transaction.type === 'income' ? '⬆️' : '⬇️'}</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="font-semibold">${transaction.category}</p>
+                                <p class="text-gray-600 text-sm">${transaction.description}</p>
+                                <p class="text-gray-500 text-xs">${new Date(transaction.date).toLocaleDateString('es-ES')}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-lg font-bold ${
+                                transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                            }">
+                                ${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}
+                            </p>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function showAddModal() {
+            document.getElementById('add-modal').classList.add('active');
+        }
+
+        function hideAddModal() {
+            document.getElementById('add-modal').classList.remove('active');
+            // Reset form
+            document.getElementById('amount-input').value = '';
+            document.getElementById('category-select').value = '';
+            document.getElementById('description-input').value = '';
+        }
+
+        function setTransactionType(type) {
+            currentTransactionType = type;
+            
+            const incomeBtn = document.getElementById('income-btn');
+            const expenseBtn = document.getElementById('expense-btn');
+            
+            if (type === 'income') {
+                incomeBtn.className = 'flex-1 p-3 rounded-lg font-semibold bg-green-600 text-white';
+                expenseBtn.className = 'flex-1 p-3 rounded-lg font-semibold bg-gray-100 text-gray-600';
+            } else {
+                incomeBtn.className = 'flex-1 p-3 rounded-lg font-semibold bg-gray-100 text-gray-600';
+                expenseBtn.className = 'flex-1 p-3 rounded-lg font-semibold bg-red-600 text-white';
+            }
+            
+            updateCategorySelect();
+        }
+
+        function updateCategorySelect() {
+            const select = document.getElementById('category-select');
+            select.innerHTML = '<option value="">Seleccionar categoría</option>';
+            
+            categories[currentTransactionType].forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                select.appendChild(option);
+            });
+        }
+
+        function addNewCategory() {
+            const newCategory = document.getElementById('new-category-input').value.trim();
+            if (newCategory) {
+                categories[currentTransactionType].push(newCategory);
+                updateCategorySelect();
+                document.getElementById('category-select').value = newCategory;
+                document.getElementById('new-category-input').value = '';
+            }
+        }
+
+        function addTransaction() {
+            const amount = parseFloat(document.getElementById('amount-input').value);
+            const category = document.getElementById('category-select').value;
+            const description = document.getElementById('description-input').value;
+            const date = document.getElementById('date-input').value;
+
+            if (amount && category) {
+                // Ajustar la fecha para que sea a las 12:00 PM del día seleccionado
+                const adjustedDate = new Date(date + 'T12:00:00');
+                const isoDate = adjustedDate.toISOString().split('T')[0];
+                
+                const transaction = {
+                    id: Date.now(),
+                    type: currentTransactionType,
+                    amount: amount,
+                    category: category,
+                    description: description || '',
+                    date: isoDate
+                };
+
+                transactions.unshift(transaction);
+                updateDisplay();
+                if (document.getElementById('charts-view').classList.contains('hidden') === false) {
+                    renderCharts();
+                }
+                hideAddModal();
+            }
+        }
+
+            function renderCharts() {
+                const selectedChartYear = parseInt(document.getElementById('chart-year-select').value);
+                
+                // Get monthly data for charts (all months for 2024, up to September for 2025)
+                const monthLimit = selectedChartYear === 2024 ? 12 : 9;
+                let monthlyData = months.slice(0, monthLimit).map(month => ({
+                    month: month,
+                    year: selectedChartYear,
+                    income: 0,
+                    expenses: 0
+                }));
+                
+                // Fill in the actual data from transactions
+                transactions
+                    .filter(t => {
+                        const date = new Date(t.date);
+                        const monthLimit = selectedChartYear === 2024 ? 12 : 9;
+                        return date.getFullYear() === selectedChartYear && date.getMonth() < monthLimit;
+                    })
+                    .forEach(t => {
+                        const date = new Date(t.date);
+                        const monthIndex = date.getMonth();
+                        if (t.type === 'income') {
+                            monthlyData[monthIndex].income += t.amount;
+                        } else {
+                            monthlyData[monthIndex].expenses += t.amount;
+                        }
+                    });
+                
+                // Calculate month over month change for balance
+                if (monthlyData.length >= 2) {
+                    const currentBalance = monthlyData[monthlyData.length - 1].income - monthlyData[monthlyData.length - 1].expenses;
+                    const previousBalance = monthlyData[monthlyData.length - 2].income - monthlyData[monthlyData.length - 2].expenses;
+                    const difference = currentBalance - previousBalance;
+                    
+                    const growthElement = document.getElementById('monthly-growth');
+                    growthElement.textContent = `Balance ${difference >= 0 ? '+' : ''}${formatCurrency(difference)} vs. mes anterior`;
+                    growthElement.className = `text-sm font-medium ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`;
+                }
+                
+                // Trend Chart (Line Chart)
+                if (window.trendChart) {
+                    window.trendChart.destroy();
+                }
+                const trendCtx = document.getElementById('trend-chart').getContext('2d');
+                window.trendChart = new Chart(trendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: monthlyData.map(d => d.month),
+                        datasets: [{
+                            label: 'Ingresos',
+                            data: monthlyData.map(d => d.income),
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true
+                        }, {
+                            label: 'Gastos',
+                            data: monthlyData.map(d => d.expenses),
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatCurrency(value);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Monthly Balance Chart
+                if (window.balanceChart) {
+                    window.balanceChart.destroy();
+                }
+                const monthlyBalanceCtx = document.getElementById('monthly-balance-chart').getContext('2d');
+                window.balanceChart = new Chart(monthlyBalanceCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: monthlyData.map(d => d.month),
+                        datasets: [{
+                            label: 'Balance Mensual',
+                            data: monthlyData.map(d => d.income - d.expenses),
+                            backgroundColor: monthlyData.map(d => (d.income - d.expenses) >= 0 ? '#10B981' : '#EF4444'),
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return formatCurrency(context.raw);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatCurrency(value);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+        function getMonthlyData() {
+            const monthlyStats = {};
+            
+            transactions.forEach(transaction => {
+                const date = new Date(transaction.date);
+                const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+                
+                if (!monthlyStats[monthKey]) {
+                    monthlyStats[monthKey] = {
+                        month: months[date.getMonth()],
+                        year: date.getFullYear(),
+                        income: 0,
+                        expenses: 0
+                    };
+                }
+                
+                if (transaction.type === 'income') {
+                    monthlyStats[monthKey].income += transaction.amount;
+                } else {
+                    monthlyStats[monthKey].expenses += transaction.amount;
+                }
+            });
+
+            return Object.values(monthlyStats);
+        }
+
+        function getCategoryData() {
+            const currentTransactions = getCurrentMonthTransactions();
+            const categoryTotals = {};
+
+            currentTransactions.forEach(transaction => {
+                if (transaction.type === 'expense') {
+                    categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + transaction.amount;
+                }
+            });
+
+            return Object.entries(categoryTotals).map(([category, amount]) => ({
+                name: category,
+                value: amount
+            }));
+        }
+    </script>
+</body>
+</html>
